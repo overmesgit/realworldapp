@@ -1,0 +1,46 @@
+package mediumapp
+
+templ usernamePasswordFields(errMap map[string][]string) {
+	<label>
+		<span class="text-gray-700">User name</span>
+		<input id="username" name="username" type="text" class="mt-1 block w-full" placeholder="" />
+		@fieldErrors("username", errMap)
+	</label>
+	<label>
+		<span class="text-gray-700">Password</span>
+		<input id="password" name="password" type="text" class="mt-1 block w-full" placeholder="" />
+		@fieldErrors("password", errMap)
+	</label>
+}
+
+templ signUpContent(errMap map[string][]string) {
+	<form method="post">
+		@usernamePasswordFields(errMap)
+		<button id="submit" class={"mt-1", btn }>
+			Sign Up
+		</button>
+		<a id="back" href="/" class={"mt-1", btn }>
+			Back
+		</a>
+	</form>
+}
+
+templ signUp(errMap map[string][]string, userContext UserContext) {
+	@base("Blog site - Sign up", signUpContent(errMap), userContext)
+}
+
+templ signInContent(errMap map[string][]string) {
+	<form method="post">
+		@usernamePasswordFields(errMap)
+		<button id="submit" class={"mt-1", btn }>
+			Sign In
+		</button>
+		<a id="back" href="/" class={"mt-1", btn }>
+			Back
+		</a>
+	</form>
+}
+
+templ signIn(errMap map[string][]string, userContext UserContext) {
+	@base("Blog site - Sign in", signInContent(errMap), userContext)
+}

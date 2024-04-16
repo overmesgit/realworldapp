@@ -1,0 +1,117 @@
+package mediumapp
+
+
+import (
+	"fmt"
+	"example.com/medium/ent"
+)
+
+templ base(title string, content templ.Component, userContext UserContext) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<script src="/static/tailwind.js"></script>
+	    <title>{ title }</title>
+	</head>
+	<body class="max-w-4xl mx-auto py-12">
+		<nav>
+			<a href="/" id="home" class="py-2 px-3 text-gray-900 rounded hover:bg-gray-100 border-2 cursor-pointer">Home</a>
+			if userContext.SignedIn {
+				<a href="/user" id="user" class="py-2 px-3 text-gray-900 rounded hover:bg-gray-100 border-2 cursor-pointer">{ userContext.UserName }</a>
+			} else {
+				<a href="/sign-up" id="sign-up" class="py-2 px-3 text-gray-900 rounded hover:bg-gray-100 border-2 cursor-pointer">Sign Up</a>
+				<a href="/sign-in" id="sign-in" class="py-2 px-3 text-gray-900 rounded hover:bg-gray-100 border-2 cursor-pointer">Sign In</a>
+			}
+		</nav>
+		<div class="container mx-auto m-8">
+			<h1 class="text-4xl">{ title }</h1>
+			@content
+		</div>
+	</body>
+	</html>
+}
+
+const btn = "text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+
+templ articleView(article *ent.Article) {
+	<a href={ templ.URL(fmt.Sprintf("/article/%d", article.ID)) } class="article block max-w m-2 p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700">
+		<h5 class="title mb-2 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{ article.Title }</h5>
+		<span class="bg-blue-100 text-blue-800 text-sm font-medium me-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">{ article.Edges.User.Name }</span>
+		<p class="content font-normal text-gray-700 dark:text-gray-400">{ article.Content }</p>
+	</a>
+}
+
+templ indexContent(articles []*ent.Article, userContext UserContext) {
+    if userContext.SignedIn {
+		<div  class="py-8">
+			<a id="new-article" href="/new-article" class={ btn }>
+				New article
+			</a>
+		</div>
+    }
+	<div class="py-8">
+		for _, article := range articles {
+			@articleView(article)
+		}
+	</div>
+}
+
+templ index(articles []*ent.Article, userContext UserContext) {
+	@base("Blog site", indexContent(articles, userContext), userContext)
+}
+
+templ fieldErrors(fieldName string, errMap map[string][]string) {
+	if fieldErrors, ok := errMap[fieldName]; ok {
+		<ul class="mb-2">
+			for _, fieldErr := range fieldErrors {
+				<li class="error text-md text-red-600 dark:text-red-500">{ fieldErr }</li>
+			}
+		</ul>
+	}
+}
+
+templ newArticleContent(errMap map[string][]string) {
+	<form method="post">
+	   	@fieldErrors("nofield", errMap)
+		<div></div>
+		<label>
+			<span class="text-gray-700">Title</span>
+			<input id="article-title" name="title" type="text" class="mt-1 block w-full" placeholder="" />
+			@fieldErrors("title", errMap)
+		</label>
+		<label>
+			<span class="text-gray-700">Content</span>
+			<textarea id="article-content" name="content" rows="6" class="mt-1 block w-full" />
+			@fieldErrors("content", errMap)
+		</label>
+		<button id="save" class={"mt-1", btn }>
+			Save
+		</button>
+		<a id="back" href="/" class={"mt-1", btn }>
+			Back
+		</a>
+	</form>
+}
+
+templ newArticle(errMap map[string][]string, userContext UserContext) {
+	@base("New article", newArticleContent(errMap), userContext)
+}
+
+templ articleDetailView(article *ent.Article) {
+	   <div class="block">
+ 			@articleView(article)
+	   </div>
+		<div class="block m-2 p-2">
+			<a id="back" href="/" class={ btn }>
+				Back
+			</a>
+		</div>
+}
+
+templ articleDetailLayout(article *ent.Article, userContext UserContext) {
+	@base("Blog site", articleDetailView(article), userContext)
+}
+
+templ notFound(userContext UserContext) {
+	@base("Not found", nil, userContext)
+}

@@ -10,7 +10,7 @@ templ base(title string, content templ.Component, userContext UserContext) {
 	<!DOCTYPE html>
 	<html lang="en">
 	<head>
-		<script src="/static/tailwind.js"></script>
+		<link rel="stylesheet" href="/static/styles.css" />
 	    <title>{ title }</title>
 	</head>
 	<body class="max-w-4xl mx-auto py-12">
@@ -84,7 +84,7 @@ templ newArticleContent(errMap map[string][]string) {
 			<textarea id="article-content" name="content" rows="6" class="mt-1 block w-full" />
 			@fieldErrors("content", errMap)
 		</label>
-		<button id="save" class={"mt-1", btn }>
+		<button id="save" class={"mt-2", btn }>
 			Save
 		</button>
 		<a id="back" href="/" class={"mt-1", btn }>

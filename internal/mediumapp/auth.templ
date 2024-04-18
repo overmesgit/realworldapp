@@ -16,10 +16,10 @@ templ usernamePasswordFields(errMap map[string][]string) {
 templ signUpContent(errMap map[string][]string) {
 	<form method="post">
 		@usernamePasswordFields(errMap)
-		<button id="submit" class={"mt-1", btn }>
+		<button id="submit" class="m-2 btn">
 			Sign Up
 		</button>
-		<a id="back" href="/" class={"mt-1", btn }>
+		<a id="back" href="/" class="m-2 btn">
 			Back
 		</a>
 	</form>
@@ -32,10 +32,10 @@ templ signUp(errMap map[string][]string, userContext UserContext) {
 templ signInContent(errMap map[string][]string) {
 	<form method="post">
 		@usernamePasswordFields(errMap)
-		<button id="submit" class={"mt-1", btn }>
+		<button id="submit" class="my-2 btn">
 			Sign In
 		</button>
-		<a id="back" href="/" class={"mt-1", btn }>
+		<a id="back" href="/" class="m-2 btn">
 			Back
 		</a>
 	</form>

@@ -39,7 +39,12 @@ templ articleView(article *ent.Article) {
 	</a>
 }
 
-templ indexContent(articles []*ent.Article, userContext UserContext) {
+type Pagination struct {
+   currentPage int
+   totalPageCount int
+}
+
+templ indexContent(articles []*ent.Article, userContext UserContext, pagination Pagination) {
     if userContext.SignedIn {
 		<div  class="py-2">
 			<a id="new-article" href="/new-article" class="btn">
@@ -52,10 +57,15 @@ templ indexContent(articles []*ent.Article, userContext UserContext) {
 			@articleView(article)
 		}
 	</div>
+    <div id="pagination" class="join flex flex-wrap w-full">
+	   for i := range pagination.totalPageCount {
+			<a href={ templ.URL(fmt.Sprintf("/page/%v", i+1)) } class={ "join-item", "btn", templ.KV("btn-active", i + 1 == pagination.currentPage)}>{ fmt.Sprint(i + 1) }</a>
+	   }
+	</div>
 }
 
-templ index(articles []*ent.Article, userContext UserContext) {
-	@base("Blog site", indexContent(articles, userContext), userContext)
+templ index(articles []*ent.Article, userContext UserContext, pagination Pagination) {
+	@base("Blog site", indexContent(articles, userContext, pagination), userContext)
 }
 
 templ fieldErrors(fieldName string, errMap map[string][]string) {

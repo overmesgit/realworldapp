@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"net/http"
+	"strconv"
 )
 
 var validate = validator.New(validator.WithRequiredStructEnabled())
@@ -37,6 +38,44 @@ func render(ctx echo.Context, status int, t templ.Component) error {
 	return nil
 }
 
+type IndexController struct {
+	*ent.Client
+}
+
+func (controller IndexController) IndexPage(c echo.Context) error {
+	pageParam := c.Param("page")
+	println(pageParam)
+	page := 1
+	if len(pageParam) > 0 {
+		var err error
+		page, err = strconv.Atoi(pageParam)
+		if err != nil {
+			return render(c, http.StatusNotFound, notFound(UserContext{}))
+		}
+	}
+	userContext, err := GetUserContext(c)
+	if err != nil && !errors.As(err, &jwtTokenMissingOrInvalid) {
+		return err
+	}
+	articlesOnPage := 50
+	articles, err := controller.Client.Article.
+		Query().WithUser().Order(ent.Desc(article.FieldID)).
+		Offset((page - 1) * articlesOnPage).Limit(articlesOnPage).
+		All(c.Request().Context())
+	if err != nil {
+		return err
+	}
+	articlesCount, err := controller.Client.Article.
+		Query().Order(ent.Desc(article.FieldID)).
+		Count(c.Request().Context())
+	if err != nil {
+		return err
+	}
+
+	return index(articles, userContext, Pagination{page, (articlesCount / articlesOnPage) + 1}).
+		Render(c.Request().Context(), c.Response().Writer)
+}
+
 func StartServer(client *ent.Client) {
 	insecure := echo.New()
 	insecure.Use(middleware.Logger())
@@ -57,19 +96,9 @@ func StartServer(client *ent.Client) {
 	}
 	secure.Use(echojwt.WithConfig(config))
 
-	secure.GET("/", func(c echo.Context) error {
-		userContext, err := GetUserContext(c)
-		if err != nil && !errors.As(err, &jwtTokenMissingOrInvalid) {
-			return err
-		}
-		articles, err := client.Article.
-			Query().WithUser().Order(ent.Desc(article.FieldID)).
-			All(c.Request().Context())
-		if err != nil {
-			return err
-		}
-		return index(articles, userContext).Render(c.Request().Context(), c.Response().Writer)
-	})
+	indexCtr := IndexController{client}
+	secure.GET("/", indexCtr.IndexPage)
+	secure.GET("/page/:page", indexCtr.IndexPage)
 
 	secure.GET("/user", func(c echo.Context) error {
 		user, err := getJwtClaims(c)

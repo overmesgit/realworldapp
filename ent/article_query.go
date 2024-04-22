@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -11,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"example.com/medium/ent/article"
+	"example.com/medium/ent/comment"
 	"example.com/medium/ent/predicate"
 	"example.com/medium/ent/user"
 )
@@ -18,11 +20,12 @@ import (
 // ArticleQuery is the builder for querying Article entities.
 type ArticleQuery struct {
 	config
-	ctx        *QueryContext
-	order      []article.OrderOption
-	inters     []Interceptor
-	predicates []predicate.Article
-	withUser   *UserQuery
+	ctx          *QueryContext
+	order        []article.OrderOption
+	inters       []Interceptor
+	predicates   []predicate.Article
+	withUser     *UserQuery
+	withComments *CommentQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -74,6 +77,28 @@ func (aq *ArticleQuery) QueryUser() *UserQuery {
 			sqlgraph.From(article.Table, article.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, article.UserTable, article.UserColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryComments chains the current query on the "comments" edge.
+func (aq *ArticleQuery) QueryComments() *CommentQuery {
+	query := (&CommentClient{config: aq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := aq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := aq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(article.Table, article.FieldID, selector),
+			sqlgraph.To(comment.Table, comment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, article.CommentsTable, article.CommentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(aq.driver.Dialect(), step)
 		return fromU, nil
@@ -268,12 +293,13 @@ func (aq *ArticleQuery) Clone() *ArticleQuery {
 		return nil
 	}
 	return &ArticleQuery{
-		config:     aq.config,
-		ctx:        aq.ctx.Clone(),
-		order:      append([]article.OrderOption{}, aq.order...),
-		inters:     append([]Interceptor{}, aq.inters...),
-		predicates: append([]predicate.Article{}, aq.predicates...),
-		withUser:   aq.withUser.Clone(),
+		config:       aq.config,
+		ctx:          aq.ctx.Clone(),
+		order:        append([]article.OrderOption{}, aq.order...),
+		inters:       append([]Interceptor{}, aq.inters...),
+		predicates:   append([]predicate.Article{}, aq.predicates...),
+		withUser:     aq.withUser.Clone(),
+		withComments: aq.withComments.Clone(),
 		// clone intermediate query.
 		sql:  aq.sql.Clone(),
 		path: aq.path,
@@ -288,6 +314,17 @@ func (aq *ArticleQuery) WithUser(opts ...func(*UserQuery)) *ArticleQuery {
 		opt(query)
 	}
 	aq.withUser = query
+	return aq
+}
+
+// WithComments tells the query-builder to eager-load the nodes that are connected to
+// the "comments" edge. The optional arguments are used to configure the query builder of the edge.
+func (aq *ArticleQuery) WithComments(opts ...func(*CommentQuery)) *ArticleQuery {
+	query := (&CommentClient{config: aq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	aq.withComments = query
 	return aq
 }
 
@@ -369,8 +406,9 @@ func (aq *ArticleQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Arti
 	var (
 		nodes       = []*Article{}
 		_spec       = aq.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			aq.withUser != nil,
+			aq.withComments != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -394,6 +432,13 @@ func (aq *ArticleQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Arti
 	if query := aq.withUser; query != nil {
 		if err := aq.loadUser(ctx, query, nodes, nil,
 			func(n *Article, e *User) { n.Edges.User = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := aq.withComments; query != nil {
+		if err := aq.loadComments(ctx, query, nodes,
+			func(n *Article) { n.Edges.Comments = []*Comment{} },
+			func(n *Article, e *Comment) { n.Edges.Comments = append(n.Edges.Comments, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -426,6 +471,36 @@ func (aq *ArticleQuery) loadUser(ctx context.Context, query *UserQuery, nodes []
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (aq *ArticleQuery) loadComments(ctx context.Context, query *CommentQuery, nodes []*Article, init func(*Article), assign func(*Article, *Comment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Article)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(comment.FieldArticleID)
+	}
+	query.Where(predicate.Comment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(article.CommentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ArticleID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "article_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

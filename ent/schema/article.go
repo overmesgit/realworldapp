@@ -25,5 +25,7 @@ func (Article) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("user", User.Type).
 			Field("user_id").Required().Unique(),
+		edge.From("comments", Comment.Type).
+			Ref("article"),
 	}
 }

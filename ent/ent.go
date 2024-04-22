@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"example.com/medium/ent/article"
+	"example.com/medium/ent/comment"
 	"example.com/medium/ent/user"
 )
 
@@ -75,6 +76,7 @@ func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			article.Table: article.ValidColumn,
+			comment.Table: comment.ValidColumn,
 			user.Table:    user.ValidColumn,
 		})
 	})

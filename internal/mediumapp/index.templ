@@ -11,6 +11,7 @@ templ base(title string, content templ.Component, userContext UserContext) {
 	<html lang="en">
 	<head>
 		<link rel="stylesheet" href="/static/styles.css" />
+		<script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
 	    <title>{ title }</title>
 	</head>
 	<body class="max-w-4xl mx-auto py-12">
@@ -105,21 +106,50 @@ templ newArticle(errMap map[string][]string, userContext UserContext) {
 	@base("New article", newArticleContent(errMap), userContext)
 }
 
-templ articleDetailView(article *ent.Article) {
-	   <div class="block">
- 			@articleView(article)
-	   </div>
-		<div class="block m-2 p-2">
-			<a id="back" href="/" class="btn">
-				Back
-			</a>
-		</div>
+templ articleDetailView(article *ent.Article, userContext UserContext) {
+	<div class="block">
+		@articleView(article)
+	</div>
+	<div class="block m-2 p-2">
+		<a id="back" href="/" class="btn">
+			Back
+		</a>
+	</div>
+    for _, comment := range article.Edges.Comments {
+	   @commentView(comment, comment.Edges.User)
+    }
+	if userContext.SignedIn {
+		@newComment(article.ID, nil, nil, nil)
+	}
 }
 
 templ articleDetailLayout(article *ent.Article, userContext UserContext) {
-	@base("Blog site", articleDetailView(article), userContext)
+	@base("Blog site", articleDetailView(article, userContext), userContext)
 }
 
 templ notFound(userContext UserContext) {
 	@base("Not found", nil, userContext)
+}
+
+templ commentView(comment *ent.Comment, user *ent.User) {
+	   <p class="comment m-2 border-2 p-2 rounded-lg">{ fmt.Sprint(user.Name) }: { comment.Text }</p>
+}
+
+templ newComment(articleID int, comment *ent.Comment, user *ent.User, errMap map[string][]string) {
+	if comment != nil {
+		@commentView(comment, user)
+	}
+	<form id="commentForm" hx-post={ fmt.Sprintf("/article/%v/new-comment", articleID) }
+			hx-swap="outerHTML" class="m-2">
+	   	@fieldErrors("nofield", errMap)
+		<div></div>
+		<label>
+			<span class="text-gray-700">Text</span>
+			<textarea id="comment-text" name="text" rows="6" class="mt-1 block w-full" />
+			@fieldErrors("text", errMap)
+		</label>
+		<button id="comment-save" class="btn m-2">
+			Save
+		</button>
+	</form>
 }

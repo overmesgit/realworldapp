@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"example.com/medium/ent/article"
+	"example.com/medium/ent/comment"
 	"example.com/medium/ent/user"
 )
 
@@ -41,6 +42,21 @@ func (ac *ArticleCreate) SetUserID(i int) *ArticleCreate {
 // SetUser sets the "user" edge to the User entity.
 func (ac *ArticleCreate) SetUser(u *User) *ArticleCreate {
 	return ac.SetUserID(u.ID)
+}
+
+// AddCommentIDs adds the "comments" edge to the Comment entity by IDs.
+func (ac *ArticleCreate) AddCommentIDs(ids ...int) *ArticleCreate {
+	ac.mutation.AddCommentIDs(ids...)
+	return ac
+}
+
+// AddComments adds the "comments" edges to the Comment entity.
+func (ac *ArticleCreate) AddComments(c ...*Comment) *ArticleCreate {
+	ids := make([]int, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return ac.AddCommentIDs(ids...)
 }
 
 // Mutation returns the ArticleMutation object of the builder.
@@ -138,6 +154,22 @@ func (ac *ArticleCreate) createSpec() (*Article, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.UserID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := ac.mutation.CommentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   article.CommentsTable,
+			Columns: []string{article.CommentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(comment.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

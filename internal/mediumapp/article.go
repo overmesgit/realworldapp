@@ -41,8 +41,9 @@ func (controller ArticleController) GetArticle(c echo.Context) error {
 		return render(c, http.StatusNotFound, notFound(UserContext{}))
 	}
 	articlePtr, err := controller.Client.Article.
-		Query().WithUser().
-		Where(article.ID(id)).
+		Query().WithUser().WithComments(func(q *ent.CommentQuery) {
+			q.WithUser()
+		}).Where(article.ID(id)).
 		Only(c.Request().Context())
 	target := &ent.NotFoundError{}
 	if errors.As(err, &target) {

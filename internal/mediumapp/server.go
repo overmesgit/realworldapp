@@ -111,5 +111,6 @@ func StartServer(client *ent.Client) {
 	})
 
 	InitArticleController(secure, client)
+	InitCommentController(secure, client)
 	insecure.Logger.Fatal(insecure.Start(":8080"))
 }

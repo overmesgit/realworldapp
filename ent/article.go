@@ -33,9 +33,11 @@ type Article struct {
 type ArticleEdges struct {
 	// User holds the value of the user edge.
 	User *User `json:"user,omitempty"`
+	// Comments holds the value of the comments edge.
+	Comments []*Comment `json:"comments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -47,6 +49,15 @@ func (e ArticleEdges) UserOrErr() (*User, error) {
 		return nil, &NotFoundError{label: user.Label}
 	}
 	return nil, &NotLoadedError{edge: "user"}
+}
+
+// CommentsOrErr returns the Comments value or an error if the edge
+// was not loaded in eager-loading.
+func (e ArticleEdges) CommentsOrErr() ([]*Comment, error) {
+	if e.loadedTypes[1] {
+		return e.Comments, nil
+	}
+	return nil, &NotLoadedError{edge: "comments"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -113,6 +124,11 @@ func (a *Article) Value(name string) (ent.Value, error) {
 // QueryUser queries the "user" edge of the Article entity.
 func (a *Article) QueryUser() *UserQuery {
 	return NewArticleClient(a.config).QueryUser(a)
+}
+
+// QueryComments queries the "comments" edge of the Article entity.
+func (a *Article) QueryComments() *CommentQuery {
+	return NewArticleClient(a.config).QueryComments(a)
 }
 
 // Update returns a builder for updating this Article.
